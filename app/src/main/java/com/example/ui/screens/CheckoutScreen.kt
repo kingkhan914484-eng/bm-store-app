@@ -24,7 +24,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AccountBalance
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CloudDone
+import androidx.compose.material.icons.filled.ConfirmationNumber
 import androidx.compose.material.icons.filled.CreditCard
 import androidx.compose.material.icons.filled.LocalShipping
 import androidx.compose.material.icons.filled.Money
@@ -32,6 +34,8 @@ import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.Store
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -55,12 +59,16 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.data.local.AddressEntity
 import com.example.data.local.CartEntity
+import com.example.data.local.CouponEntity
 import com.example.data.model.DeliveryAddress
 import com.example.ui.components.formatPrice
+import com.example.ui.theme.BorderLight
 import com.example.ui.theme.DividerGray
 import com.example.ui.theme.FlipkartBackground
 import com.example.ui.theme.FlipkartBlue
+import com.example.ui.theme.FlipkartDarkBlue
 import com.example.ui.theme.FlipkartGreen
 import com.example.ui.theme.FlipkartOrange
 import com.example.ui.theme.FlipkartYellow
@@ -71,8 +79,12 @@ import com.example.ui.theme.TextSecondary
 @Composable
 fun CheckoutScreen(
     cartItems: List<CartEntity>,
-    deliveryAddress: DeliveryAddress,
-    onAddressChange: (DeliveryAddress) -> Unit,
+    selectedAddress: AddressEntity?,
+    onOpenAddressBook: () -> Unit,
+    appliedCoupon: CouponEntity?,
+    onApplyCoupon: (String) -> Unit,
+    onRemoveCoupon: () -> Unit,
+    couponMessage: String?,
     onConfirmOrder: (paymentMethod: String, isOfflinePickup: Boolean) -> Unit,
     onBack: () -> Unit,
     isProcessing: Boolean,
@@ -80,15 +92,20 @@ fun CheckoutScreen(
 ) {
     var selectedPaymentMethod by remember { mutableStateOf("UPI") }
     var isOfflinePickup by remember { mutableStateOf(false) }
-    var isEditingAddress by remember { mutableStateOf(false) }
+    var couponInput by remember { mutableStateOf("") }
 
-    var fullName by remember { mutableStateOf(deliveryAddress.fullName) }
-    var phone by remember { mutableStateOf(deliveryAddress.phone) }
-    var pincode by remember { mutableStateOf(deliveryAddress.pincode) }
-    var houseDetails by remember { mutableStateOf(deliveryAddress.houseDetails) }
-    var city by remember { mutableStateOf(deliveryAddress.city) }
+    val subtotal = cartItems.sumOf { it.price * it.quantity }
+    val discount = if (appliedCoupon != null) {
+        if (appliedCoupon.discountPercent > 0) {
+            (subtotal * appliedCoupon.discountPercent) / 100.0
+        } else {
+            appliedCoupon.flatDiscount
+        }
+    } else 0.0
 
-    val totalAmount = cartItems.sumOf { it.price * it.quantity }
+    val deliveryFee = if (subtotal >= 500 || isOfflinePickup) 0.0 else 40.0
+    val totalAmount = maxOf(0.0, subtotal - discount + deliveryFee)
+
     val scrollState = rememberScrollState()
 
     Column(
@@ -102,7 +119,7 @@ fun CheckoutScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 8.dp, vertical = 6.dp),
+                    .padding(horizontal = 8.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 IconButton(onClick = onBack, modifier = Modifier.testTag("checkout_back_btn")) {
@@ -193,24 +210,13 @@ fun CheckoutScreen(
                         )
                         if (!isOfflinePickup) {
                             Text(
-                                text = if (isEditingAddress) "Save" else "Edit",
+                                text = "Change / Add",
                                 color = FlipkartBlue,
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold,
-                                modifier = Modifier.clickable {
-                                    if (isEditingAddress) {
-                                        onAddressChange(
-                                            deliveryAddress.copy(
-                                                fullName = fullName,
-                                                phone = phone,
-                                                pincode = pincode,
-                                                houseDetails = houseDetails,
-                                                city = city
-                                            )
-                                        )
-                                    }
-                                    isEditingAddress = !isEditingAddress
-                                }
+                                modifier = Modifier
+                                    .clickable { onOpenAddressBook() }
+                                    .padding(4.dp)
                             )
                         }
                     }
@@ -230,67 +236,112 @@ fun CheckoutScreen(
                             color = TextSecondary
                         )
                         Text(
-                            text = "Contact: +91 98765 43210 • Open 9:00 AM - 10:00 PM",
+                            text = "Contact: +91 98765 43210 • Open 9:00 AM - 10:00 PM (Zero Waiting)",
                             fontSize = 12.sp,
                             color = FlipkartGreen,
                             fontWeight = FontWeight.Medium
                         )
-                    } else if (isEditingAddress) {
-                        OutlinedTextField(
-                            value = fullName,
-                            onValueChange = { fullName = it },
-                            label = { Text("Full Name") },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 4.dp)
-                        )
-                        OutlinedTextField(
-                            value = phone,
-                            onValueChange = { phone = it },
-                            label = { Text("Phone Number") },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 4.dp)
-                        )
-                        OutlinedTextField(
-                            value = houseDetails,
-                            onValueChange = { houseDetails = it },
-                            label = { Text("House No. / Building / Street") },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 4.dp)
-                        )
-                        Row(modifier = Modifier.fillMaxWidth()) {
-                            OutlinedTextField(
-                                value = city,
-                                onValueChange = { city = it },
-                                label = { Text("City") },
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .padding(vertical = 4.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            OutlinedTextField(
-                                value = pincode,
-                                onValueChange = { pincode = it },
-                                label = { Text("PIN Code") },
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .padding(vertical = 4.dp)
-                            )
-                        }
-                    } else {
+                    } else if (selectedAddress != null) {
                         Text(
-                            text = "${deliveryAddress.fullName} • ${deliveryAddress.phone}",
+                            text = "${selectedAddress.fullName} • ${selectedAddress.phone}",
                             fontSize = 13.5.sp,
                             fontWeight = FontWeight.Bold,
                             color = TextPrimary
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = "${deliveryAddress.houseDetails}, ${deliveryAddress.city} - ${deliveryAddress.pincode}",
+                            text = "${selectedAddress.houseDetails}, ${selectedAddress.city}, ${selectedAddress.state} - ${selectedAddress.pincode}",
                             fontSize = 12.5.sp,
                             color = TextSecondary
+                        )
+                    } else {
+                        Text(
+                            text = "No address selected. Please tap 'Change / Add' to select an address.",
+                            color = Color(0xFFD32F2F),
+                            fontSize = 13.sp
+                        )
+                    }
+                }
+            }
+
+            // Coupon Code Card
+            Surface(
+                color = SurfaceWhite,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 6.dp)
+            ) {
+                Column(modifier = Modifier.padding(14.dp)) {
+                    Text(
+                        text = "APPLY COUPON CODE",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = TextSecondary
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    if (appliedCoupon != null) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(FlipkartGreen.copy(alpha = 0.1f))
+                                .padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column {
+                                Text(
+                                    text = "'${appliedCoupon.code}' Applied!",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 14.sp,
+                                    color = FlipkartGreen
+                                )
+                                Text(
+                                    text = "Saved ₹${discount.toInt()} on this order",
+                                    fontSize = 12.sp,
+                                    color = TextSecondary
+                                )
+                            }
+                            IconButton(onClick = onRemoveCoupon, modifier = Modifier.size(24.dp)) {
+                                Icon(Icons.Default.Close, "Remove Coupon", tint = Color(0xFFD32F2F))
+                            }
+                        }
+                    } else {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            OutlinedTextField(
+                                value = couponInput,
+                                onValueChange = { couponInput = it.uppercase() },
+                                placeholder = { Text("Try BMSTORE50, WELCOME100") },
+                                singleLine = true,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .testTag("checkout_coupon_input")
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Button(
+                                onClick = {
+                                    if (couponInput.isNotBlank()) {
+                                        onApplyCoupon(couponInput)
+                                    }
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = FlipkartBlue),
+                                shape = RoundedCornerShape(6.dp)
+                            ) {
+                                Text("Apply")
+                            }
+                        }
+                    }
+
+                    if (!couponMessage.isNullOrBlank()) {
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = couponMessage,
+                            fontSize = 12.sp,
+                            color = if (appliedCoupon != null) FlipkartGreen else Color(0xFFD32F2F)
                         )
                     }
                 }
@@ -338,10 +389,10 @@ fun CheckoutScreen(
 
                     PaymentOptionRow(
                         title = "Cash on Delivery",
-                        subtitle = "Pay cash or UPI at delivery",
+                        subtitle = "Pay cash or UPI when order arrives",
                         icon = Icons.Default.Money,
-                        isSelected = selectedPaymentMethod == "COD",
-                        onSelect = { selectedPaymentMethod = "COD" }
+                        isSelected = selectedPaymentMethod == "Cash on Delivery",
+                        onSelect = { selectedPaymentMethod = "Cash on Delivery" }
                     )
 
                     if (isOfflinePickup) {
@@ -356,37 +407,69 @@ fun CheckoutScreen(
                 }
             }
 
-            // Firebase & Security info badge
+            // Price Details Breakdown
             Surface(
                 color = SurfaceWhite,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(bottom = 10.dp)
             ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(14.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.CloudDone,
-                        contentDescription = null,
-                        tint = FlipkartGreen,
-                        modifier = Modifier.size(22.dp)
+                Column(modifier = Modifier.padding(14.dp)) {
+                    Text(
+                        text = "PRICE DETAILS",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = TextSecondary
                     )
-                    Spacer(modifier = Modifier.width(10.dp))
-                    Column {
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text("Price (${cartItems.size} items)", fontSize = 13.5.sp, color = TextPrimary)
+                        Text(formatPrice(subtotal), fontSize = 13.5.sp, color = TextPrimary)
+                    }
+
+                    if (discount > 0) {
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text("Coupon Discount", fontSize = 13.5.sp, color = FlipkartGreen)
+                            Text("-${formatPrice(discount)}", fontSize = 13.5.sp, color = FlipkartGreen, fontWeight = FontWeight.Bold)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text("Delivery Charges", fontSize = 13.5.sp, color = TextPrimary)
                         Text(
-                            text = "Connected to BM Cloud & Firebase",
-                            fontSize = 12.5.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = TextPrimary
+                            text = if (deliveryFee == 0.0) "FREE" else formatPrice(deliveryFee),
+                            fontSize = 13.5.sp,
+                            color = if (deliveryFee == 0.0) FlipkartGreen else TextPrimary,
+                            fontWeight = FontWeight.SemiBold
                         )
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+                    HorizontalDivider(color = DividerGray)
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text("Total Payable Amount", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
                         Text(
-                            text = "Orders and status sync seamlessly with Firebase Firestore",
-                            fontSize = 11.sp,
-                            color = TextSecondary
+                            text = formatPrice(totalAmount),
+                            fontSize = 17.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = FlipkartDarkBlue
                         )
                     }
                 }
@@ -412,13 +495,13 @@ fun CheckoutScreen(
             ) {
                 Column {
                     Text(
-                        text = "₹${formatPrice(totalAmount)}",
+                        text = formatPrice(totalAmount),
                         fontSize = 18.sp,
                         fontWeight = FontWeight.ExtraBold,
                         color = TextPrimary
                     )
                     Text(
-                        text = "Total Payable",
+                        text = "Total Amount",
                         fontSize = 11.sp,
                         color = TextSecondary
                     )
@@ -464,38 +547,39 @@ private fun DeliveryModeCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val borderColor = if (isSelected) FlipkartBlue else BorderLight
+    val bgColor = if (isSelected) FlipkartBlue.copy(alpha = 0.05f) else SurfaceWhite
+
     Box(
         modifier = modifier
-            .border(
-                width = if (isSelected) 2.dp else 1.dp,
-                color = if (isSelected) FlipkartBlue else DividerGray,
-                shape = RoundedCornerShape(6.dp)
-            )
-            .background(
-                if (isSelected) Color(0xFFF0F5FF) else SurfaceWhite,
-                shape = RoundedCornerShape(6.dp)
-            )
-            .clickable(onClick = onClick)
+            .clip(RoundedCornerShape(8.dp))
+            .background(bgColor)
+            .border(1.5.dp, borderColor, RoundedCornerShape(8.dp))
+            .clickable { onClick() }
             .padding(10.dp)
     ) {
         Column {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = if (isSelected) FlipkartBlue else TextSecondary,
-                modifier = Modifier.size(22.dp)
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = if (isSelected) FlipkartBlue else TextSecondary,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = title,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = if (isSelected) FlipkartBlue else TextPrimary
+                )
+            }
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = title,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Bold,
-                color = if (isSelected) FlipkartBlue else TextPrimary
-            )
-            Text(
                 text = subtitle,
-                fontSize = 10.sp,
-                color = TextSecondary
+                fontSize = 10.5.sp,
+                color = TextSecondary,
+                lineHeight = 14.sp
             )
         }
     }
@@ -512,8 +596,8 @@ private fun PaymentOptionRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onSelect)
-            .padding(vertical = 8.dp),
+            .clickable { onSelect() }
+            .padding(vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         RadioButton(
@@ -521,7 +605,7 @@ private fun PaymentOptionRow(
             onClick = onSelect,
             colors = RadioButtonDefaults.colors(selectedColor = FlipkartBlue)
         )
-        Spacer(modifier = Modifier.width(4.dp))
+        Spacer(modifier = Modifier.width(6.dp))
         Icon(
             imageVector = icon,
             contentDescription = null,
@@ -532,13 +616,13 @@ private fun PaymentOptionRow(
         Column {
             Text(
                 text = title,
-                fontSize = 13.sp,
-                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                fontSize = 13.5.sp,
+                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
                 color = TextPrimary
             )
             Text(
                 text = subtitle,
-                fontSize = 11.sp,
+                fontSize = 11.5.sp,
                 color = TextSecondary
             )
         }

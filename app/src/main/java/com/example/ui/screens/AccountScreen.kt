@@ -19,22 +19,37 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.filled.AdminPanelSettings
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.CloudDone
-import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material.icons.filled.Headphones
-import androidx.compose.material.icons.filled.Language
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Login
 import androidx.compose.material.icons.filled.MonetizationOn
+import androidx.compose.material.icons.filled.Policy
 import androidx.compose.material.icons.filled.ShoppingBag
 import androidx.compose.material.icons.filled.Store
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -45,6 +60,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.local.OrderEntity
+import com.example.data.model.UserSession
 import com.example.ui.components.formatPrice
 import com.example.ui.theme.DividerGray
 import com.example.ui.theme.FlipkartBackground
@@ -63,10 +79,22 @@ import java.util.Locale
 
 @Composable
 fun AccountScreen(
+    user: UserSession,
     orders: List<OrderEntity>,
+    onOrderClick: (OrderEntity) -> Unit,
     onOpenOfflineStores: () -> Unit,
+    onOpenAddressBook: () -> Unit,
+    onOpenHelpSupport: () -> Unit,
+    onOpenLegal: (String) -> Unit,
+    onOpenAdminPanel: () -> Unit,
+    onUpdateProfile: (name: String, phone: String) -> Unit,
+    onLoginClick: () -> Unit,
+    onLogoutClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    var showEditProfileDialog by remember { mutableStateOf(false) }
+    var showLogoutDialog by remember { mutableStateOf(false) }
+
     LazyColumn(
         modifier = modifier
             .fillMaxSize()
@@ -83,60 +111,103 @@ fun AccountScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(56.dp)
-                            .clip(CircleShape)
-                            .background(Color.White.copy(alpha = 0.2f)),
-                        contentAlignment = Alignment.Center
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f)
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.AccountCircle,
-                            contentDescription = null,
-                            tint = Color.White,
-                            modifier = Modifier.size(52.dp)
-                        )
+                        Box(
+                            modifier = Modifier
+                                .size(56.dp)
+                                .clip(CircleShape)
+                                .background(Color.White.copy(alpha = 0.2f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.AccountCircle,
+                                contentDescription = null,
+                                tint = Color.White,
+                                modifier = Modifier.size(52.dp)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.width(14.dp))
+
+                        Column {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = user.name,
+                                    fontSize = 17.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(4.dp))
+                                        .background(FlipkartYellow)
+                                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                                ) {
+                                    Text(
+                                        text = if (user.role == "admin") "ADMIN" else "PLUS",
+                                        color = FlipkartDarkBlue,
+                                        fontSize = 9.sp,
+                                        fontWeight = FontWeight.Black
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = "${user.phone.ifEmpty { "Mobile not set" }} • ${user.email.ifEmpty { "Guest" }}",
+                                fontSize = 11.5.sp,
+                                color = Color.White.copy(alpha = 0.85f)
+                            )
+                            Text(
+                                text = "BM STORE ONLINE OFFLINE SHOPPING",
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = FlipkartYellow
+                            )
+                        }
                     }
 
-                    Spacer(modifier = Modifier.width(14.dp))
+                    if (user.isLoggedIn) {
+                        IconButton(onClick = { showEditProfileDialog = true }) {
+                            Icon(Icons.Default.Edit, "Edit Profile", tint = SurfaceWhite)
+                        }
+                    }
+                }
+            }
+        }
 
-                    Column {
+        // Admin Access Banner (if user is admin or quick link)
+        if (user.role == "admin") {
+            item {
+                Surface(
+                    color = FlipkartDarkBlue,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onOpenAdminPanel() }
+                        .padding(bottom = 6.dp)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                text = "Rahim Ahmed",
-                                fontSize = 17.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Box(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(4.dp))
-                                    .background(FlipkartYellow)
-                                    .padding(horizontal = 6.dp, vertical = 2.dp)
-                            ) {
-                                Text(
-                                    text = "PLUS",
-                                    color = FlipkartDarkBlue,
-                                    fontSize = 9.sp,
-                                    fontWeight = FontWeight.Black
-                                )
+                            Icon(Icons.Default.AdminPanelSettings, null, tint = FlipkartYellow, modifier = Modifier.size(24.dp))
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Column {
+                                Text("Admin Control Centre", color = SurfaceWhite, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                Text("Manage orders, products, coupons & view stats", color = FlipkartYellow, fontSize = 11.sp)
                             }
                         }
-                        Spacer(modifier = Modifier.height(2.dp))
-                        Text(
-                            text = "+91 98765 43210 • bakul2048@gmail.com",
-                            fontSize = 11.5.sp,
-                            color = Color.White.copy(alpha = 0.85f)
-                        )
-                        Text(
-                            text = "BM STORE ONLINE OFFLINE SHOPPING VIP",
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = FlipkartYellow
-                        )
+                        Icon(Icons.Default.ChevronRight, null, tint = SurfaceWhite)
                     }
                 }
             }
@@ -148,7 +219,7 @@ fun AccountScreen(
                 color = SurfaceWhite,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 6.dp)
+                    .padding(vertical = 4.dp)
             ) {
                 Row(
                     modifier = Modifier
@@ -167,13 +238,13 @@ fun AccountScreen(
                         Spacer(modifier = Modifier.width(10.dp))
                         Column {
                             Text(
-                                text = "420 SuperCoins Balance",
+                                text = "450 BM SuperCoins Balance",
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = TextPrimary
                             )
                             Text(
-                                text = "Use SuperCoins for extra discounts online & in-store",
+                                text = "Redeem SuperCoins for extra discounts online & in-store",
                                 fontSize = 11.sp,
                                 color = TextSecondary
                             )
@@ -188,49 +259,13 @@ fun AccountScreen(
             }
         }
 
-        // Firebase Sync Status Card
+        // My Orders Section Header
         item {
             Surface(
                 color = SurfaceWhite,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(bottom = 6.dp)
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(14.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.CloudDone,
-                        contentDescription = null,
-                        tint = FlipkartGreen,
-                        modifier = Modifier.size(24.dp)
-                    )
-                    Spacer(modifier = Modifier.width(10.dp))
-                    Column {
-                        Text(
-                            text = "Firebase Firestore: Connected & Active",
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = FlipkartGreen
-                        )
-                        Text(
-                            text = "Cloud sync active • Room local database backup active",
-                            fontSize = 11.sp,
-                            color = TextSecondary
-                        )
-                    }
-                }
-            }
-        }
-
-        // My Orders Section Header
-        item {
-            Surface(
-                color = SurfaceWhite,
-                modifier = Modifier.fillMaxWidth()
+                    .padding(top = 4.dp)
             ) {
                 Row(
                     modifier = Modifier
@@ -259,86 +294,230 @@ fun AccountScreen(
                         .fillMaxWidth()
                         .padding(bottom = 6.dp)
                 ) {
-                    Column(
+                    Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(20.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
+                            .padding(24.dp),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Text(
-                            text = "No orders yet",
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = TextSecondary
-                        )
-                        Text(
-                            text = "When you place orders, they will appear here and sync to Firebase.",
-                            fontSize = 11.5.sp,
-                            color = TextSecondary
-                        )
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(
+                                imageVector = Icons.Default.ShoppingBag,
+                                contentDescription = null,
+                                tint = DividerGray,
+                                modifier = Modifier.size(44.dp)
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "No orders placed yet",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = TextPrimary
+                            )
+                            Text(
+                                text = "Browse our catalog and place your first order!",
+                                fontSize = 12.sp,
+                                color = TextSecondary
+                            )
+                        }
                     }
                 }
             }
         } else {
-            items(orders) { order ->
-                OrderItemCard(order = order)
-                Spacer(modifier = Modifier.height(4.dp))
+            items(orders, key = { it.orderId }) { order ->
+                OrderItemCard(
+                    order = order,
+                    onClick = { onOrderClick(order) }
+                )
             }
         }
 
-        // Menu items
+        // Quick Service & Navigation Links
         item {
-            Spacer(modifier = Modifier.height(6.dp))
             Surface(
                 color = SurfaceWhite,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 6.dp)
             ) {
                 Column {
-                    AccountMenuItem(
-                        icon = Icons.Default.Store,
-                        title = "BM STORE Offline Outlets & Counter Pickup",
-                        subtitle = "Find stores, check offline stock & opening hours",
-                        onClick = onOpenOfflineStores
-                    )
-                    HorizontalDivider(thickness = 0.5.dp, color = DividerGray)
-                    AccountMenuItem(
+                    AccountOptionRow(
                         icon = Icons.Default.LocationOn,
                         title = "Saved Delivery Addresses",
-                        subtitle = "Manage home, office, and store pickup locations",
-                        onClick = { }
+                        subtitle = "Manage home, work & pickup addresses",
+                        onClick = onOpenAddressBook
                     )
-                    HorizontalDivider(thickness = 0.5.dp, color = DividerGray)
-                    AccountMenuItem(
-                        icon = Icons.Default.Language,
-                        title = "Select Language",
-                        subtitle = "English, বাংলা, हिन्दी",
-                        onClick = { }
+                    HorizontalDivider(color = DividerGray, modifier = Modifier.padding(horizontal = 14.dp))
+
+                    AccountOptionRow(
+                        icon = Icons.Default.Store,
+                        title = "BM STORE Offline Hub & Pickup Counters",
+                        subtitle = "View physical store address, timing & directions",
+                        onClick = onOpenOfflineStores
                     )
-                    HorizontalDivider(thickness = 0.5.dp, color = DividerGray)
-                    AccountMenuItem(
+                    HorizontalDivider(color = DividerGray, modifier = Modifier.padding(horizontal = 14.dp))
+
+                    AccountOptionRow(
                         icon = Icons.Default.Headphones,
                         title = "24x7 Customer Help Centre",
-                        subtitle = "Help with orders, returns, and store queries",
-                        onClick = { }
+                        subtitle = "FAQs, order returns, helpline & queries",
+                        onClick = onOpenHelpSupport
                     )
+                    HorizontalDivider(color = DividerGray, modifier = Modifier.padding(horizontal = 14.dp))
+
+                    AccountOptionRow(
+                        icon = Icons.Default.Policy,
+                        title = "Terms & Conditions",
+                        subtitle = "Official BM STORE service agreement",
+                        onClick = { onOpenLegal("Terms and Conditions") }
+                    )
+                    HorizontalDivider(color = DividerGray, modifier = Modifier.padding(horizontal = 14.dp))
+
+                    AccountOptionRow(
+                        icon = Icons.Default.Lock,
+                        title = "Privacy & Return Policy",
+                        subtitle = "Data security & 7-day hassle free returns",
+                        onClick = { onOpenLegal("Privacy Policy") }
+                    )
+
+                    if (user.role != "admin") {
+                        HorizontalDivider(color = DividerGray, modifier = Modifier.padding(horizontal = 14.dp))
+                        AccountOptionRow(
+                            icon = Icons.Default.AdminPanelSettings,
+                            title = "Store Manager Admin Login",
+                            subtitle = "Authorized BM Store staff portal",
+                            onClick = onOpenAdminPanel
+                        )
+                    }
                 }
             }
         }
 
+        // Account Auth Actions
         item {
-            Spacer(modifier = Modifier.height(90.dp))
+            Surface(
+                color = SurfaceWhite,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 20.dp)
+            ) {
+                Column(modifier = Modifier.padding(14.dp)) {
+                    if (user.isLoggedIn) {
+                        Button(
+                            onClick = { showLogoutDialog = true },
+                            colors = ButtonDefaults.buttonColors(containerColor = FlipkartBackground),
+                            shape = RoundedCornerShape(6.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(46.dp)
+                                .testTag("account_logout_btn")
+                        ) {
+                            Icon(Icons.Default.ExitToApp, null, tint = Color(0xFFD32F2F))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Log Out of Account", color = Color(0xFFD32F2F), fontWeight = FontWeight.Bold)
+                        }
+                    } else {
+                        Button(
+                            onClick = onLoginClick,
+                            colors = ButtonDefaults.buttonColors(containerColor = FlipkartBlue),
+                            shape = RoundedCornerShape(6.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(46.dp)
+                                .testTag("account_login_btn")
+                        ) {
+                            Icon(Icons.Default.Login, null, tint = SurfaceWhite)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Sign In / Create Account", color = SurfaceWhite, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
         }
+    }
+
+    // Edit Profile Dialog
+    if (showEditProfileDialog) {
+        var newName by remember { mutableStateOf(user.name) }
+        var newPhone by remember { mutableStateOf(user.phone) }
+
+        AlertDialog(
+            onDismissRequest = { showEditProfileDialog = false },
+            title = { Text("Edit Profile Details") },
+            text = {
+                Column {
+                    OutlinedTextField(
+                        value = newName,
+                        onValueChange = { newName = it },
+                        label = { Text("Full Name") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(modifier = Modifier.height(10.dp))
+                    OutlinedTextField(
+                        value = newPhone,
+                        onValueChange = { newPhone = it },
+                        label = { Text("Mobile Number") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        onUpdateProfile(newName, newPhone)
+                        showEditProfileDialog = false
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = FlipkartBlue)
+                ) {
+                    Text("Save Changes")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showEditProfileDialog = false }) { Text("Cancel") }
+            }
+        )
+    }
+
+    // Logout Confirmation Dialog
+    if (showLogoutDialog) {
+        AlertDialog(
+            onDismissRequest = { showLogoutDialog = false },
+            title = { Text("Sign Out") },
+            text = { Text("Are you sure you want to sign out from BM STORE ONLINE OFFLINE SHOPPING?") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showLogoutDialog = false
+                        onLogoutClick()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD32F2F))
+                ) {
+                    Text("Sign Out")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showLogoutDialog = false }) { Text("Stay Logged In") }
+            }
+        )
     }
 }
 
 @Composable
-private fun OrderItemCard(order: OrderEntity) {
-    val dateStr = SimpleDateFormat("dd MMM yyyy, hh:mm a", Locale.getDefault())
-        .format(Date(order.timestamp))
+private fun OrderItemCard(
+    order: OrderEntity,
+    onClick: () -> Unit
+) {
+    val dateFormatter = remember { SimpleDateFormat("dd MMM, hh:mm a", Locale.getDefault()) }
+    val formattedDate = dateFormatter.format(Date(order.timestamp))
 
     Surface(
         color = SurfaceWhite,
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() }
+            .padding(bottom = 2.dp)
     ) {
         Column(modifier = Modifier.padding(14.dp)) {
             Row(
@@ -346,48 +525,66 @@ private fun OrderItemCard(order: OrderEntity) {
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = "Order #${order.orderId}",
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = FlipkartBlue
-                )
-                Text(
-                    text = "₹${formatPrice(order.totalAmount)}",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = TextPrimary
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .size(10.dp)
+                            .clip(CircleShape)
+                            .background(if (order.status == "Cancelled") Color(0xFFD32F2F) else FlipkartGreen)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = order.status,
+                        fontSize = 13.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = if (order.status == "Cancelled") Color(0xFFD32F2F) else FlipkartGreen
+                    )
+                }
+
+                if (order.isOfflinePickup) {
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(FlipkartOrange.copy(alpha = 0.15f))
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                    ) {
+                        Text(
+                            text = "STORE PICKUP",
+                            color = FlipkartOrange,
+                            fontSize = 9.5.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
             }
 
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(6.dp))
+
             Text(
-                text = "$dateStr • ${order.itemCount} items",
-                fontSize = 11.5.sp,
-                color = TextSecondary
+                text = order.itemsSummary.ifEmpty { "BM STORE Order #${order.orderId}" },
+                fontSize = 13.5.sp,
+                fontWeight = FontWeight.Medium,
+                color = TextPrimary,
+                maxLines = 2
             )
 
             Spacer(modifier = Modifier.height(6.dp))
 
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    modifier = Modifier
-                        .size(8.dp)
-                        .clip(CircleShape)
-                        .background(if (order.isOfflinePickup) FlipkartOrange else FlipkartGreen)
-                )
-                Spacer(modifier = Modifier.width(6.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Text(
-                    text = order.status,
+                    text = "Total: ${formatPrice(order.totalAmount)} (${order.paymentMethod})",
+                    fontSize = 12.5.sp,
+                    color = TextSecondary
+                )
+                Text(
+                    text = "Track Order >",
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
-                    color = if (order.isOfflinePickup) FlipkartOrange else FlipkartGreen
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = "• ${order.paymentMethod}",
-                    fontSize = 11.sp,
-                    color = TextSecondary
+                    color = FlipkartBlue
                 )
             }
         }
@@ -395,7 +592,7 @@ private fun OrderItemCard(order: OrderEntity) {
 }
 
 @Composable
-private fun AccountMenuItem(
+private fun AccountOptionRow(
     icon: ImageVector,
     title: String,
     subtitle: String,
@@ -404,34 +601,41 @@ private fun AccountMenuItem(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .clickable { onClick() }
             .padding(horizontal = 14.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = FlipkartBlue,
-            modifier = Modifier.size(22.dp)
-        )
-        Spacer(modifier = Modifier.width(14.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = title,
-                fontSize = 13.5.sp,
-                fontWeight = FontWeight.Medium,
-                color = TextPrimary
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.weight(1f)
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = FlipkartBlue,
+                modifier = Modifier.size(22.dp)
             )
-            Text(
-                text = subtitle,
-                fontSize = 11.sp,
-                color = TextSecondary
-            )
+            Spacer(modifier = Modifier.width(14.dp))
+            Column {
+                Text(
+                    text = title,
+                    fontSize = 13.5.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = TextPrimary
+                )
+                Text(
+                    text = subtitle,
+                    fontSize = 11.5.sp,
+                    color = TextSecondary
+                )
+            }
         }
         Icon(
             imageVector = Icons.Default.ChevronRight,
             contentDescription = null,
-            tint = TextSecondary
+            tint = TextSecondary,
+            modifier = Modifier.size(20.dp)
         )
     }
 }

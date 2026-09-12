@@ -86,38 +86,21 @@ fun FlipkartTopBar(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Column {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = "BM STORE",
-                            color = SurfaceWhite,
-                            fontSize = 20.sp,
-                            fontWeight = FontWeight.ExtraBold,
-                            fontStyle = FontStyle.Italic,
-                            letterSpacing = 0.5.sp
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        // Plus-style golden pill badge
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(4.dp))
-                                .background(FlipkartYellow)
-                                .padding(horizontal = 5.dp, vertical = 2.dp)
-                        ) {
-                            Text(
-                                text = "PLUS",
-                                color = FlipkartDarkBlue,
-                                fontSize = 9.sp,
-                                fontWeight = FontWeight.Black
-                            )
-                        }
-                    }
+                Column(modifier = Modifier.weight(1f, fill = false)) {
                     Text(
-                        text = "ONLINE OFFLINE SHOPPING",
+                        text = "BM STORE ONLINE OFFLINE SHOPPING",
+                        color = SurfaceWhite,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        letterSpacing = 0.3.sp,
+                        maxLines = 1
+                    )
+                    Text(
+                        text = "Official Shopping & Express Pickup",
                         color = FlipkartYellow,
                         fontSize = 9.5.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 0.6.sp
+                        fontWeight = FontWeight.SemiBold,
+                        letterSpacing = 0.4.sp
                     )
                 }
 

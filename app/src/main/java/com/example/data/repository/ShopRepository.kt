@@ -1,281 +1,217 @@
 package com.example.data.repository
 
 import com.example.data.firebase.FirebaseService
+import com.example.data.local.AddressEntity
 import com.example.data.local.AppDatabase
 import com.example.data.local.CartEntity
+import com.example.data.local.CouponEntity
+import com.example.data.local.NotificationEntity
 import com.example.data.local.OrderEntity
+import com.example.data.local.ProductEntity
+import com.example.data.local.UserEntity
 import com.example.data.local.WishlistEntity
 import com.example.data.model.BannerItem
 import com.example.data.model.CategoryItem
 import com.example.data.model.DeliveryAddress
 import com.example.data.model.Product
+import com.example.data.model.UserSession
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 import java.util.UUID
 
 class ShopRepository(
     private val database: AppDatabase,
     private val firebaseService: FirebaseService = FirebaseService()
 ) {
+    // Reactive flows from Room
+    val allProducts: Flow<List<Product>> = database.productDao().getAllProducts().map { entities ->
+        entities.map { Product.fromEntity(it) }
+    }
+
     val allCartItems: Flow<List<CartEntity>> = database.cartDao().getAllCartItems()
     val allOrders: Flow<List<OrderEntity>> = database.orderDao().getAllOrders()
     val allWishlist: Flow<List<WishlistEntity>> = database.wishlistDao().getAllWishlist()
+    val activeCoupons: Flow<List<CouponEntity>> = database.couponDao().getActiveCoupons()
+    val notifications: Flow<List<NotificationEntity>> = database.notificationDao().getAllNotifications()
+    val unreadNotificationCount: Flow<Int> = database.notificationDao().getUnreadCount()
 
+    // Categories
     val categories: List<CategoryItem> = listOf(
-        CategoryItem("all", "All", "explore", "Top Offers"),
-        CategoryItem("mobiles", "Mobiles", "smartphone", "Up to 40% Off"),
-        CategoryItem("electronics", "Electronics", "laptop", "Min. 50% Off"),
-        CategoryItem("fashion", "Fashion", "apparel", "60-80% Off"),
-        CategoryItem("appliances", "Appliances", "tv", "Best Deals"),
-        CategoryItem("home", "Home", "chair", "From ₹99"),
-        CategoryItem("beauty", "Beauty & Toys", "face", "Extra 15% Off"),
-        CategoryItem("grocery", "Grocery", "shopping_basket", "Up to 50% Off")
+        CategoryItem("all", "All", "explore", "Top Deals", listOf("All", "Top Deals", "Trending", "New")),
+        CategoryItem("mobiles", "Mobiles", "smartphone", "Up to 40% Off", listOf("All", "Smartphones", "5G Mobiles", "Budget Phones", "Accessories")),
+        CategoryItem("electronics", "Electronics", "laptop", "Min. 50% Off", listOf("All", "Laptops", "Audio", "Wearables", "Smart Gadgets")),
+        CategoryItem("fashion", "Fashion", "apparel", "60-80% Off", listOf("All", "Clothing", "Footwear", "Watches", "Accessories")),
+        CategoryItem("appliances", "Appliances", "tv", "Best Deals", listOf("All", "Televisions", "Refrigerators", "Washing Machines", "Kitchen")),
+        CategoryItem("home", "Home", "chair", "From ₹99", listOf("All", "Furniture", "Mattresses", "Home Decor", "Lighting")),
+        CategoryItem("beauty", "Beauty & Toys", "face", "Extra 15% Off", listOf("All", "Makeup", "Skincare", "Toys", "Grooming")),
+        CategoryItem("grocery", "Grocery", "shopping_basket", "Up to 50% Off", listOf("All", "Oils & Ghee", "Staples", "Snacks", "Beverages"))
     )
 
+    // Banners
     val banners: List<BannerItem> = listOf(
         BannerItem(
             id = "b1",
-            title = "BIG SHOPPING DAYS",
+            title = "MEGA FESTIVAL OF DISCOUNTS",
             subtitle = "50% - 80% OFF on Top Brands & Electronics",
             tag = "SALE LIVE",
             categoryTarget = "electronics"
         ),
         BannerItem(
             id = "b2",
-            title = "BM STORE MEGA DISCOUNTS",
-            subtitle = "Flagship Smartphones & 5G Devices from ₹9,999",
-            tag = "LIMITED TIME",
+            title = "BM STORE 5G REVOLUTION",
+            subtitle = "Next-Gen Smartphones with Instant Store Pickup",
+            tag = "SPECIAL OFFER",
             categoryTarget = "mobiles"
         ),
         BannerItem(
             id = "b3",
-            title = "ONLINE & OFFLINE SPECIAL",
-            subtitle = "Buy Online or Instant Store Pickup at BM STORE",
-            tag = "SPECIAL OFFER",
+            title = "ONLINE SHOPPING + OFFLINE TRUST",
+            subtitle = "Shop Online or Pick Up at BM STORE Central Hub",
+            tag = "EXCLUSIVE",
             categoryTarget = "all"
         )
     )
 
-    val sampleProducts: List<Product> = listOf(
-        Product(
-            id = "mob_01",
-            title = "Apple iPhone 15 (Black, 128 GB)",
-            category = "mobiles",
-            price = 69999.0,
-            originalPrice = 79900.0,
-            discountPercent = 12,
-            rating = 4.6,
-            ratingCount = 28410,
-            imageUrl = "https://images.unsplash.com/photo-1510557880182-3d4d3cba35a5?w=500&q=80",
-            isAssured = true,
-            freeDelivery = true,
-            brand = "Apple",
-            description = "Dynamic Island, 48MP Main camera, USB-C, and durable color-infused glass and aluminum design.",
-            highlights = listOf("128 GB ROM", "15.49 cm (6.1 inch) Super Retina XDR Display", "48MP + 12MP Dual Camera", "A16 Bionic Chip 6 Core Processor")
-        ),
-        Product(
-            id = "mob_02",
-            title = "Samsung Galaxy S24 5G (Onyx Black, 256 GB)",
-            category = "mobiles",
-            price = 74999.0,
-            originalPrice = 89999.0,
-            discountPercent = 16,
-            rating = 4.5,
-            ratingCount = 14320,
-            imageUrl = "https://images.unsplash.com/photo-1610945265064-0e34e5519bbf?w=500&q=80",
-            isAssured = true,
-            freeDelivery = true,
-            brand = "Samsung",
-            description = "Galaxy AI is here. Search like never before, get quick language translation, and effortlessly edit your photos.",
-            highlights = listOf("8 GB RAM | 256 GB ROM", "15.75 cm (6.2 inch) Full HD+ Dynamic AMOLED 2X", "50MP + 12MP + 10MP Triple Camera", "Exynos 2400 Processor")
-        ),
-        Product(
-            id = "mob_03",
-            title = "OnePlus Nord CE4 Lite 5G (Super Silver, 128 GB)",
-            category = "mobiles",
-            price = 19999.0,
-            originalPrice = 22999.0,
-            discountPercent = 13,
-            rating = 4.3,
-            ratingCount = 31200,
-            imageUrl = "https://images.unsplash.com/photo-1598327105666-5b89351aff97?w=500&q=80",
-            isAssured = true,
-            freeDelivery = true,
-            brand = "OnePlus",
-            description = "120 Hz AMOLED Display, 5500 mAh battery with 80W SUPERVOOC fast charging and Sony LYT-600 Camera.",
-            highlights = listOf("8 GB RAM | 128 GB ROM", "16.94 cm (6.67 inch) Full HD+ AMOLED 120Hz", "50MP Sony LYT-600 OIS Camera", "Snapdragon 695 5G Processor")
-        ),
-        Product(
-            id = "elec_01",
-            title = "Sony WH-1000XM5 Wireless Active Noise Cancelling Headphones",
-            category = "electronics",
-            price = 26990.0,
-            originalPrice = 34990.0,
-            discountPercent = 22,
-            rating = 4.7,
-            ratingCount = 8920,
-            imageUrl = "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=500&q=80",
-            isAssured = true,
-            freeDelivery = true,
-            brand = "Sony",
-            description = "Industry-leading noise cancellation with 8 microphones and Auto NC Optimizer. 30 hours battery life.",
-            highlights = listOf("Industry-leading NC", "30-hr Battery Life", "Quick 3-min Charge for 3 hours", "Multipoint Connection")
-        ),
-        Product(
-            id = "elec_02",
-            title = "Apple MacBook Air Apple M2 - (8 GB/256 GB SSD/macOS)",
-            category = "electronics",
-            price = 84990.0,
-            originalPrice = 99900.0,
-            discountPercent = 14,
-            rating = 4.8,
-            ratingCount = 12900,
-            imageUrl = "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=500&q=80",
-            isAssured = true,
-            freeDelivery = true,
-            brand = "Apple",
-            description = "Strikingly thin design with fast M2 chip, Liquid Retina display, 1080p FaceTime HD camera.",
-            highlights = listOf("Apple M2 Processor", "8 GB Unified Memory", "256 GB SSD Storage", "34.54 cm (13.6 inch) Liquid Retina Display")
-        ),
-        Product(
-            id = "elec_03",
-            title = "Noise ColorFit Pulse 3 Smartwatch (1.96 inch TFT Display)",
-            category = "electronics",
-            price = 1499.0,
-            originalPrice = 4999.0,
-            discountPercent = 70,
-            rating = 4.2,
-            ratingCount = 84300,
-            imageUrl = "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=500&q=80",
-            isAssured = true,
-            freeDelivery = true,
-            brand = "Noise",
-            description = "1.96-inch TFT display, Bluetooth calling, 100+ sports modes, 7-day battery life, and complete health tracker.",
-            highlights = listOf("1.96\" Big Display", "Bluetooth Calling", "100+ Sports Modes", "IP68 Water Resistant")
-        ),
-        Product(
-            id = "fash_01",
-            title = "Nike Air Max Impact 4 Basketball & Casual Sneakers For Men",
-            category = "fashion",
-            price = 4995.0,
-            originalPrice = 8995.0,
-            discountPercent = 44,
-            rating = 4.4,
-            ratingCount = 9800,
-            imageUrl = "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=500&q=80",
-            isAssured = true,
-            freeDelivery = true,
-            brand = "Nike",
-            description = "Max Air cushioning in the heel helps dissipate impact force. Rubber wraps up the sides for added durability.",
-            highlights = listOf("Genuine Nike Footwear", "Max Air Heel Cushioning", "Breathable Mesh Upper", "Durable Traction Outsole")
-        ),
-        Product(
-            id = "fash_02",
-            title = "Puma Motorsport Men Slim Fit Casual Cotton Polo T-Shirt",
-            category = "fashion",
-            price = 1299.0,
-            originalPrice = 2999.0,
-            discountPercent = 56,
-            rating = 4.3,
-            ratingCount = 6540,
-            imageUrl = "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=500&q=80",
-            isAssured = true,
-            freeDelivery = true,
-            brand = "Puma",
-            description = "Crafted from soft breathable 100% cotton with classic polo collar and ribbed cuffs for all-day comfort.",
-            highlights = listOf("100% Bio-Washed Cotton", "Slim Fit Design", "Official Motorsport Emblem", "Machine Wash Safe")
-        ),
-        Product(
-            id = "app_01",
-            title = "LG 108 cm (43 inch) Ultra HD (4K) Smart WebOS TV",
-            category = "appliances",
-            price = 28990.0,
-            originalPrice = 49990.0,
-            discountPercent = 42,
-            rating = 4.4,
-            ratingCount = 18900,
-            imageUrl = "https://images.unsplash.com/photo-1593359677879-a4bb92f829d1?w=500&q=80",
-            isAssured = true,
-            freeDelivery = true,
-            brand = "LG",
-            description = "Real 4K clarity with α5 AI Processor 4K Gen6, HDR10 Pro, AI Sound and Magic Remote compatibility.",
-            highlights = listOf("4K Ultra HD (3840 x 2160)", "20W Audio Output with AI Sound", "WebOS with ThinQ AI", "3 HDMI & 2 USB Ports")
-        ),
-        Product(
-            id = "home_01",
-            title = "Sleepyhead Original 3-Layer Orthopedic Memory Foam Mattress",
-            category = "home",
-            price = 8499.0,
-            originalPrice = 14999.0,
-            discountPercent = 43,
-            rating = 4.5,
-            ratingCount = 22100,
-            imageUrl = "https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=500&q=80",
-            isAssured = true,
-            freeDelivery = true,
-            brand = "Sleepyhead",
-            description = "Pressure-relieving memory foam with high-density base support and breathable outer fabric.",
-            highlights = listOf("Orthopedic Spinal Support", "High Density Foam", "10-Year Manufacturer Warranty", "Removable Washable Cover")
-        ),
-        Product(
-            id = "groc_01",
-            title = "Fortune Sunlite Refined Sunflower Oil (5 L Can)",
-            category = "grocery",
-            price = 629.0,
-            originalPrice = 850.0,
-            discountPercent = 26,
-            rating = 4.6,
-            ratingCount = 43000,
-            imageUrl = "https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?w=500&q=80",
-            isAssured = true,
-            freeDelivery = true,
-            brand = "Fortune",
-            description = "Enriched with Vitamins A and D. Light and healthy oil ideal for Indian cooking and deep frying.",
-            highlights = listOf("5 Litres Pack", "Zero Cholesterol", "Fortified with Vitamins", "Pure Refined Sunflower Oil")
-        ),
-        Product(
-            id = "beauty_01",
-            title = "Maybelline New York Super Stay Matte Ink Liquid Lipstick",
-            category = "beauty",
-            price = 459.0,
-            originalPrice = 699.0,
-            discountPercent = 34,
-            rating = 4.3,
-            ratingCount = 37800,
-            imageUrl = "https://images.unsplash.com/photo-1586495777744-4413f21062fa?w=500&q=80",
-            isAssured = true,
-            freeDelivery = true,
-            brand = "Maybelline",
-            description = "Flawless matte finish that stays up to 16 hours without fading, transferring, or smudging.",
-            highlights = listOf("Up to 16HR Matte Wear", "Transfer-Proof & Waterproof", "Precision Arrow Applicator", "Vibrant Intense Pigment")
+    // Initialization check: Ensure products & initial records exist in database
+    suspend fun ensureDatabaseSeeded() {
+        val count = database.productDao().getProductCount()
+        if (count == 0) {
+            AppDatabase.seedInitialData(database)
+        }
+    }
+
+    // ─────────────────────────────────────────────
+    // AUTHENTICATION & USER MANAGEMENT
+    // ─────────────────────────────────────────────
+
+    suspend fun login(identifier: String, password: String):Result<UserSession> {
+        val cleanIdentifier = identifier.trim()
+        val user = database.userDao().getUserByEmailOrPhone(cleanIdentifier)
+            ?: return Result.failure(Exception("No account found with this email or mobile number."))
+
+        if (user.passwordHash != password) {
+            return Result.failure(Exception("Incorrect password. Please try again or use Forgot Password."))
+        }
+
+        return Result.success(
+            UserSession(
+                id = user.id,
+                name = user.name,
+                email = user.email,
+                phone = user.phone,
+                role = user.role,
+                isLoggedIn = true
+            )
         )
-    )
-
-    fun getProductById(id: String): Product? {
-        return sampleProducts.find { it.id == id }
     }
 
-    fun getProductsByCategory(categoryId: String): List<Product> {
-        return if (categoryId.lowercase() == "all") {
-            sampleProducts
+    suspend fun register(name: String, email: String, phone: String, password: String): Result<UserSession> {
+        val cleanEmail = email.trim().lowercase()
+        val cleanPhone = phone.trim()
+
+        if (database.userDao().getUserByEmailOrPhone(cleanEmail) != null) {
+            return Result.failure(Exception("An account with this email already exists."))
+        }
+        if (cleanPhone.isNotEmpty() && database.userDao().getUserByEmailOrPhone(cleanPhone) != null) {
+            return Result.failure(Exception("An account with this phone number already exists."))
+        }
+
+        val newUser = UserEntity(
+            id = "user_" + UUID.randomUUID().toString().take(8),
+            name = name.trim(),
+            email = cleanEmail,
+            phone = cleanPhone,
+            passwordHash = password,
+            role = "customer"
+        )
+        database.userDao().insertUser(newUser)
+
+        // Seed default address for new user
+        val defaultAddress = AddressEntity(
+            id = "addr_" + UUID.randomUUID().toString().take(8),
+            userId = newUser.id,
+            fullName = newUser.name,
+            phone = newUser.phone.ifEmpty { "+91 98765 43210" },
+            pincode = "700001",
+            houseDetails = "House No. 12, Main Street",
+            city = "Kolkata",
+            state = "West Bengal",
+            landmark = "City Center",
+            addressType = "Home",
+            isDefault = true
+        )
+        database.addressDao().insertAddress(defaultAddress)
+
+        return Result.success(
+            UserSession(
+                id = newUser.id,
+                name = newUser.name,
+                email = newUser.email,
+                phone = newUser.phone,
+                role = newUser.role,
+                isLoggedIn = true
+            )
+        )
+    }
+
+    suspend fun resetPassword(identifier: String, newPassword: String): Boolean {
+        val user = database.userDao().getUserByEmailOrPhone(identifier.trim()) ?: return false
+        val updatedUser = user.copy(passwordHash = newPassword)
+        database.userDao().updateUser(updatedUser)
+        return true
+    }
+
+    suspend fun updateUserProfile(userId: String, name: String, phone: String): Boolean {
+        val user = database.userDao().getUserById(userId) ?: return false
+        val updated = user.copy(name = name, phone = phone)
+        database.userDao().updateUser(updated)
+        return true
+    }
+
+    // ─────────────────────────────────────────────
+    // PRODUCT CATALOG & SEARCH
+    // ─────────────────────────────────────────────
+
+    suspend fun getProductById(id: String): Product? {
+        val entity = database.productDao().getProductById(id) ?: return null
+        return Product.fromEntity(entity)
+    }
+
+    fun getProductsByCategory(category: String): Flow<List<Product>> {
+        return if (category.equals("all", ignoreCase = true)) {
+            allProducts
         } else {
-            sampleProducts.filter { it.category.equals(categoryId, ignoreCase = true) }
+            database.productDao().getProductsByCategory(category.lowercase()).map { list ->
+                list.map { Product.fromEntity(it) }
+            }
         }
     }
 
-    fun searchProducts(query: String): List<Product> {
-        if (query.isBlank()) return sampleProducts
-        return sampleProducts.filter {
-            it.title.contains(query, ignoreCase = true) ||
-            it.brand.contains(query, ignoreCase = true) ||
-            it.category.contains(query, ignoreCase = true) ||
-            it.description.contains(query, ignoreCase = true)
+    fun searchProducts(query: String): Flow<List<Product>> {
+        return database.productDao().searchProducts(query.trim()).map { list ->
+            list.map { Product.fromEntity(it) }
         }
     }
 
-    suspend fun addToCart(product: Product, quantity: Int = 1) {
-        val existing = database.cartDao().getCartItem(product.id)
+    // ─────────────────────────────────────────────
+    // CART & WISHLIST
+    // ─────────────────────────────────────────────
+
+    suspend fun addToCart(
+        product: Product,
+        quantity: Int = 1,
+        selectedVariant: String = "Standard",
+        selectedColor: String = "Default"
+    ) {
+        val cartItemId = "${product.id}_${selectedVariant}_$selectedColor"
+        val existing = database.cartDao().getCartItem(cartItemId)
         val newQty = (existing?.quantity ?: 0) + quantity
+
+        // Check stock availability
+        val cappedQty = if (product.stockCount > 0) minOf(newQty, product.stockCount) else 1
+
         val entity = CartEntity(
+            id = cartItemId,
             productId = product.id,
             title = product.title,
             category = product.category,
@@ -283,28 +219,31 @@ class ShopRepository(
             originalPrice = product.originalPrice,
             discountPercent = product.discountPercent,
             imageUrl = product.imageUrl,
-            quantity = newQty,
+            quantity = cappedQty,
+            selectedVariant = selectedVariant,
+            selectedColor = selectedColor,
             seller = product.seller,
             isAssured = product.isAssured,
             offlineStockAvailable = product.offlineStockAvailable
         )
         database.cartDao().insertOrUpdate(entity)
-        firebaseService.syncCartItemToFirebase("user_default", product.id, newQty)
+        firebaseService.syncCartItemToFirebase("user_default", product.id, cappedQty)
     }
 
-    suspend fun updateCartQuantity(productId: String, quantity: Int) {
+    suspend fun updateCartQuantity(cartItemId: String, quantity: Int) {
         if (quantity <= 0) {
-            database.cartDao().deleteCartItem(productId)
-            firebaseService.syncCartItemToFirebase("user_default", productId, 0)
+            database.cartDao().deleteCartItem(cartItemId)
         } else {
-            database.cartDao().updateQuantity(productId, quantity)
-            firebaseService.syncCartItemToFirebase("user_default", productId, quantity)
+            database.cartDao().updateQuantity(cartItemId, quantity)
         }
     }
 
-    suspend fun removeFromCart(productId: String) {
-        database.cartDao().deleteCartItem(productId)
-        firebaseService.syncCartItemToFirebase("user_default", productId, 0)
+    suspend fun removeFromCart(cartItemId: String) {
+        database.cartDao().deleteCartItem(cartItemId)
+    }
+
+    suspend fun clearCart() {
+        database.cartDao().clearCart()
     }
 
     suspend fun toggleWishlist(product: Product, isInWishlist: Boolean) {
@@ -324,36 +263,114 @@ class ShopRepository(
         }
     }
 
-    fun isItemInWishlist(productId: String): Flow<Boolean> {
-        return database.wishlistDao().isInWishlist(productId)
+    // ─────────────────────────────────────────────
+    // ADDRESS MANAGEMENT
+    // ─────────────────────────────────────────────
+
+    fun getAddressesByUser(userId: String): Flow<List<AddressEntity>> {
+        return database.addressDao().getAddressesByUser(userId)
     }
 
+    suspend fun saveAddress(address: AddressEntity) {
+        if (address.isDefault) {
+            database.addressDao().clearDefault(address.userId)
+        }
+        database.addressDao().insertAddress(address)
+    }
+
+    suspend fun deleteAddress(addressId: String) {
+        database.addressDao().deleteAddress(addressId)
+    }
+
+    suspend fun setDefaultAddress(userId: String, addressId: String) {
+        database.addressDao().clearDefault(userId)
+        database.addressDao().setDefault(addressId)
+    }
+
+    // ─────────────────────────────────────────────
+    // COUPON & DISCOUNT ENGINE
+    // ─────────────────────────────────────────────
+
+    suspend fun validateCoupon(code: String, subtotal: Double): Result<CouponEntity> {
+        val coupon = database.couponDao().getCouponByCode(code.trim().uppercase())
+            ?: return Result.failure(Exception("Invalid or expired coupon code"))
+
+        if (subtotal < coupon.minOrderAmount) {
+            return Result.failure(Exception("Minimum order value for ${coupon.code} is ₹${coupon.minOrderAmount.toInt()}"))
+        }
+
+        return Result.success(coupon)
+    }
+
+    // ─────────────────────────────────────────────
+    // ORDER MANAGEMENT & TRACKING
+    // ─────────────────────────────────────────────
+
     suspend fun placeOrder(
+        userId: String,
+        customerName: String,
+        customerPhone: String,
         cartItems: List<CartEntity>,
         totalAmount: Double,
-        deliveryAddress: DeliveryAddress,
+        discountAmount: Double,
+        deliveryCharge: Double,
+        deliveryAddress: String,
         paymentMethod: String,
+        paymentStatus: String,
+        transactionId: String,
         isOfflinePickup: Boolean = false
     ): OrderEntity {
-        val orderId = "BM-" + UUID.randomUUID().toString().take(8).uppercase()
-        val summary = cartItems.joinToString(", ") { "${it.title} (x${it.quantity})" }
+        val orderId = "BM-" + (1000000..9999999).random()
+        val itemsSummary = cartItems.joinToString(", ") { "${it.title} [${it.selectedVariant}] x${it.quantity}" }
+
         val order = OrderEntity(
             orderId = orderId,
+            userId = userId,
+            customerName = customerName,
+            customerPhone = customerPhone,
             timestamp = System.currentTimeMillis(),
             itemCount = cartItems.sumOf { it.quantity },
             totalAmount = totalAmount,
+            discountAmount = discountAmount,
+            deliveryCharge = deliveryCharge,
             status = if (isOfflinePickup) "Ready for Store Pickup" else "Confirmed & Processing",
             paymentMethod = paymentMethod,
-            deliveryAddress = "${deliveryAddress.fullName}, ${deliveryAddress.houseDetails}, ${deliveryAddress.city} - ${deliveryAddress.pincode}",
+            paymentStatus = paymentStatus,
+            paymentTransactionId = transactionId,
+            deliveryAddress = deliveryAddress,
             isOfflinePickup = isOfflinePickup,
+            itemsSummary = itemsSummary,
             syncedWithFirebase = false
         )
 
-        // Save locally to Room
+        // Save order to Room
         database.orderDao().insertOrder(order)
+
+        // Decrement product stocks
+        for (item in cartItems) {
+            val product = database.productDao().getProductById(item.productId)
+            if (product != null) {
+                val updatedStock = maxOf(0, product.stockCount - item.quantity)
+                database.productDao().updateStock(product.id, updatedStock)
+            }
+        }
+
+        // Clear cart
         database.cartDao().clearCart()
 
-        // Sync to Firebase Firestore
+        // Create notification
+        val notification = NotificationEntity(
+            id = "notif_" + UUID.randomUUID().toString().take(8),
+            title = "Order Placed Successfully!",
+            message = "Your order #$orderId has been placed. Total: ₹${totalAmount.toInt()}.",
+            timestamp = System.currentTimeMillis(),
+            type = "order",
+            isRead = false,
+            orderId = orderId
+        )
+        database.notificationDao().insertNotification(notification)
+
+        // Sync to Firebase
         val synced = firebaseService.syncOrderToFirebase(order)
         if (synced) {
             database.orderDao().markOrderSynced(order.orderId)
@@ -361,4 +378,94 @@ class ShopRepository(
 
         return order
     }
+
+    suspend fun cancelOrder(orderId: String, reason: String) {
+        database.orderDao().cancelOrder(orderId, reason)
+        // Add notification
+        val notif = NotificationEntity(
+            id = "notif_" + UUID.randomUUID().toString().take(8),
+            title = "Order #$orderId Cancelled",
+            message = "Your order has been cancelled. Reason: $reason.",
+            timestamp = System.currentTimeMillis(),
+            type = "order",
+            isRead = false,
+            orderId = orderId
+        )
+        database.notificationDao().insertNotification(notif)
+    }
+
+    suspend fun getOrderById(orderId: String): OrderEntity? {
+        return database.orderDao().getOrderById(orderId)
+    }
+
+    // ─────────────────────────────────────────────
+    // NOTIFICATIONS
+    // ─────────────────────────────────────────────
+
+    suspend fun markNotificationAsRead(id: String) {
+        database.notificationDao().markAsRead(id)
+    }
+
+    suspend fun markAllNotificationsAsRead() {
+        database.notificationDao().markAllAsRead()
+    }
+
+    // ─────────────────────────────────────────────
+    // ADMIN PANEL MANAGEMENT
+    // ─────────────────────────────────────────────
+
+    suspend fun getAdminStats(): AdminStats {
+        val totalOrders = database.orderDao().getOrderCount()
+        val totalRevenue = database.orderDao().getTotalRevenue() ?: 0.0
+        val totalProducts = database.productDao().getProductCount()
+        val totalCustomers = database.userDao().getUserCount()
+        return AdminStats(
+            totalOrders = totalOrders,
+            totalRevenue = totalRevenue,
+            totalProducts = totalProducts,
+            totalCustomers = totalCustomers
+        )
+    }
+
+    suspend fun addProduct(product: ProductEntity) {
+        database.productDao().insertProduct(product)
+    }
+
+    suspend fun updateProduct(product: ProductEntity) {
+        database.productDao().updateProduct(product)
+    }
+
+    suspend fun deleteProduct(productId: String) {
+        database.productDao().deleteProductById(productId)
+    }
+
+    suspend fun updateOrderStatus(orderId: String, newStatus: String) {
+        database.orderDao().updateOrderStatus(orderId, newStatus)
+        // Notify customer
+        val notif = NotificationEntity(
+            id = "notif_" + UUID.randomUUID().toString().take(8),
+            title = "Order Update: $newStatus",
+            message = "Your order #$orderId status has been updated to: $newStatus.",
+            timestamp = System.currentTimeMillis(),
+            type = "order",
+            isRead = false,
+            orderId = orderId
+        )
+        database.notificationDao().insertNotification(notif)
+    }
+
+    suspend fun addCoupon(coupon: CouponEntity) {
+        database.couponDao().insertCoupon(coupon)
+    }
+
+    suspend fun deleteCoupon(code: String) {
+        database.couponDao().deleteCoupon(code)
+    }
 }
+
+data class AdminStats(
+    val totalOrders: Int,
+    val totalRevenue: Double,
+    val totalProducts: Int,
+    val totalCustomers: Int
+)
