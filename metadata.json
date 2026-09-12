@@ -1,0 +1,6 @@
+{
+  "name": "BM STORE ONLINE OFFLINE SHOPPING",
+  "description": "BM STORE ONLINE OFFLINE SHOPPING - Comprehensive e-commerce app matching the Flipkart shopping experience, catalog, navigation, cart, deals, and checkout with Firebase integration.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
