@@ -134,6 +134,24 @@ fun MainAppContent(viewModel: ShopViewModel) {
                         }
                     }
                 },
+                onMobileOtpLogin = { phone ->
+                    viewModel.initiateMobileOtpLogin(phone) { success, error ->
+                        if (success) {
+                            Toast.makeText(context, "OTP generated for $phone. Select SMS or WhatsApp to receive.", Toast.LENGTH_LONG).show()
+                        } else {
+                            Toast.makeText(context, error ?: "Failed to initiate OTP", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                },
+                onGoogleSignIn = { email, name ->
+                    viewModel.loginWithGoogle(email, name) { success, error ->
+                        if (success) {
+                            Toast.makeText(context, "Logged in with Google as $email", Toast.LENGTH_SHORT).show()
+                        } else {
+                            Toast.makeText(context, error ?: "Google sign-in failed", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                },
                 onNavigateToSignup = { viewModel.navigateTo(ScreenState.SIGNUP) },
                 onNavigateToForgotPassword = { viewModel.navigateTo(ScreenState.FORGOT_PASSWORD) },
                 onContinueAsGuest = { viewModel.continueAsGuest() },
@@ -146,9 +164,18 @@ fun MainAppContent(viewModel: ShopViewModel) {
                 onSignup = { name, email, phone, pass ->
                     viewModel.register(name, email, phone, pass) { success, error ->
                         if (success) {
-                            Toast.makeText(context, "Account created! Verify OTP.", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, "Account created! Real OTP generated for verification.", Toast.LENGTH_LONG).show()
                         } else {
                             Toast.makeText(context, error ?: "Sign up failed", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                },
+                onGoogleSignup = { email, name ->
+                    viewModel.loginWithGoogle(email, name) { success, error ->
+                        if (success) {
+                            Toast.makeText(context, "Account created with Google: $email", Toast.LENGTH_SHORT).show()
+                        } else {
+                            Toast.makeText(context, error ?: "Google sign-up failed", Toast.LENGTH_SHORT).show()
                         }
                     }
                 },
@@ -165,7 +192,7 @@ fun MainAppContent(viewModel: ShopViewModel) {
                     viewModel.verifyOtp(
                         code = code,
                         onSuccess = {
-                            Toast.makeText(context, "Account verified successfully!", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, "Account verified successfully! Welcome to BM STORE.", Toast.LENGTH_SHORT).show()
                         },
                         onError = { err ->
                             Toast.makeText(context, err, Toast.LENGTH_LONG).show()
@@ -173,8 +200,8 @@ fun MainAppContent(viewModel: ShopViewModel) {
                     )
                 },
                 onResend = {
-                    viewModel.sendOtp(pendingOtpTarget)
-                    Toast.makeText(context, "New OTP sent to $pendingOtpTarget", Toast.LENGTH_SHORT).show()
+                    viewModel.resendOtp(pendingOtpTarget)
+                    Toast.makeText(context, "Fresh 6-digit OTP code generated! Choose WhatsApp or SMS to send.", Toast.LENGTH_LONG).show()
                 },
                 onBack = { viewModel.navigateBack() }
             )

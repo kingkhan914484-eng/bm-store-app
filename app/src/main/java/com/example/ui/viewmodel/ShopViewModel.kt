@@ -3,6 +3,7 @@ package com.example.ui.viewmodel
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.auth.RealAuthService
 import com.example.data.firebase.FirebaseService
 import com.example.data.local.AddressEntity
 import com.example.data.local.AppDatabase
@@ -82,8 +83,11 @@ class ShopViewModel(application: Application) : AndroidViewModel(application) {
     private val _pendingOtpTarget = MutableStateFlow("")
     val pendingOtpTarget: StateFlow<String> = _pendingOtpTarget.asStateFlow()
 
-    private val _generatedOtp = MutableStateFlow("123456")
+    private val _generatedOtp = MutableStateFlow("")
     val generatedOtp: StateFlow<String> = _generatedOtp.asStateFlow()
+
+    private val _otpExpiryTime = MutableStateFlow(0L)
+    val otpExpiryTime: StateFlow<Long> = _otpExpiryTime.asStateFlow()
 
     // Products & Filtering
     val categories: List<CategoryItem> = repository.categories
@@ -253,11 +257,22 @@ class ShopViewModel(application: Application) : AndroidViewModel(application) {
     fun register(name: String, email: String, phone: String, pass: String, onResult: (Boolean, String?) -> Unit) {
         viewModelScope.launch {
             _authError.value = null
+            if (email.isNotBlank() && !RealAuthService.isValidEmail(email)) {
+                _authError.value = "Please enter a valid Gmail or Email address."
+                onResult(false, _authError.value)
+                return@launch
+            }
+            if (phone.isNotBlank() && !RealAuthService.isValidIndianPhone(phone)) {
+                _authError.value = "Please enter a valid 10-digit mobile number."
+                onResult(false, _authError.value)
+                return@launch
+            }
             val result = repository.register(name, email, phone, pass)
             if (result.isSuccess) {
                 _currentUser.value = result.getOrThrow()
                 _pendingOtpTarget.value = phone.ifEmpty { email }
-                _generatedOtp.value = (100000..999999).random().toString()
+                _generatedOtp.value = RealAuthService.generateSecureOtp()
+                _otpExpiryTime.value = System.currentTimeMillis() + 10 * 60 * 1000
                 navigateTo(ScreenState.OTP_VERIFY)
                 onResult(true, null)
             } else {
@@ -268,18 +283,83 @@ class ShopViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun loginWithGoogle(email: String, displayName: String, onResult: (Boolean, String?) -> Unit) {
+        viewModelScope.launch {
+            _authError.value = null
+            val result = repository.loginOrRegisterWithGoogle(email, displayName)
+            if (result.isSuccess) {
+                val session = result.getOrThrow()
+                _currentUser.value = session
+                loadAddresses()
+                if (session.role == "admin") {
+                    loadAdminStats()
+                    navigateTo(ScreenState.ADMIN_PANEL)
+                } else {
+                    navigateTo(ScreenState.MAIN_TABS)
+                }
+                onResult(true, null)
+            } else {
+                val msg = result.exceptionOrNull()?.message ?: "Google Sign-In failed"
+                _authError.value = msg
+                onResult(false, msg)
+            }
+        }
+    }
+
+    fun initiateMobileOtpLogin(phone: String, onResult: (Boolean, String?) -> Unit) {
+        viewModelScope.launch {
+            if (!RealAuthService.isValidIndianPhone(phone)) {
+                _authError.value = "Please enter a valid 10-digit mobile number."
+                onResult(false, _authError.value)
+                return@launch
+            }
+            _pendingOtpTarget.value = phone
+            _generatedOtp.value = RealAuthService.generateSecureOtp()
+            _otpExpiryTime.value = System.currentTimeMillis() + 10 * 60 * 1000
+            navigateTo(ScreenState.OTP_VERIFY)
+            onResult(true, null)
+        }
+    }
+
     fun sendOtp(target: String) {
         _pendingOtpTarget.value = target
-        _generatedOtp.value = (100000..999999).random().toString()
+        _generatedOtp.value = RealAuthService.generateSecureOtp()
+        _otpExpiryTime.value = System.currentTimeMillis() + 10 * 60 * 1000
         navigateTo(ScreenState.OTP_VERIFY)
     }
 
+    fun resendOtp(target: String? = null) {
+        val tgt = target ?: _pendingOtpTarget.value
+        _pendingOtpTarget.value = tgt
+        _generatedOtp.value = RealAuthService.generateSecureOtp()
+        _otpExpiryTime.value = System.currentTimeMillis() + 10 * 60 * 1000
+    }
+
     fun verifyOtp(code: String, onSuccess: () -> Unit, onError: (String) -> Unit) {
-        if (code == _generatedOtp.value || code == "123456") {
+        val trimmed = code.trim()
+        if (trimmed.length != 6) {
+            onError("Please enter the complete 6-digit OTP code.")
+            return
+        }
+        if (_otpExpiryTime.value > 0 && System.currentTimeMillis() > _otpExpiryTime.value) {
+            onError("This OTP code has expired. Please request a new code.")
+            return
+        }
+        if (trimmed == _generatedOtp.value) {
+            val target = _pendingOtpTarget.value
+            if (target.isNotEmpty() && !target.contains("@")) {
+                viewModelScope.launch {
+                    val res = repository.loginOrRegisterWithPhone(target)
+                    if (res.isSuccess) {
+                        _currentUser.value = res.getOrThrow()
+                        loadAddresses()
+                    }
+                }
+            }
             onSuccess()
             navigateTo(ScreenState.MAIN_TABS)
         } else {
-            onError("Invalid OTP. Enter ${_generatedOtp.value} for testing.")
+            onError("Incorrect OTP. Please enter the valid 6-digit code received on ${_pendingOtpTarget.value}.")
         }
     }
 

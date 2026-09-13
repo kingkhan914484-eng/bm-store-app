@@ -29,8 +29,11 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ConfirmationNumber
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Inventory
+import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.People
+import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.ShoppingBag
+import androidx.compose.material.icons.filled.Sms
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -60,11 +63,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import android.widget.Toast
 import com.example.data.local.CouponEntity
 import com.example.data.local.OrderEntity
 import com.example.data.local.ProductEntity
@@ -82,6 +87,7 @@ import com.example.ui.theme.FlipkartYellow
 import com.example.ui.theme.SurfaceWhite
 import com.example.ui.theme.TextPrimary
 import com.example.ui.theme.TextSecondary
+import com.example.util.OrderNotificationManager
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -104,7 +110,7 @@ fun AdminPanelScreen(
     modifier: Modifier = Modifier
 ) {
     var selectedTab by remember { mutableIntStateOf(0) }
-    val tabs = listOf("Overview", "Orders", "Products", "Coupons")
+    val tabs = listOf("Overview", "Orders", "Products", "Coupons", "Alerts")
     var showAddProductSheet by remember { mutableStateOf(false) }
     var showAddCouponSheet by remember { mutableStateOf(false) }
 
@@ -176,6 +182,7 @@ fun AdminPanelScreen(
                 1 -> AdminOrdersTab(orders, onUpdateOrderStatus)
                 2 -> AdminProductsTab(products, onAddClick = { showAddProductSheet = true }, onDeleteClick = onDeleteProduct)
                 3 -> AdminCouponsTab(coupons, onAddClick = { showAddCouponSheet = true }, onDeleteClick = onDeleteCoupon)
+                4 -> AdminAlertsTab(orders.firstOrNull())
             }
         }
 
@@ -669,3 +676,185 @@ fun AdminAddCouponForm(
         Spacer(modifier = Modifier.height(16.dp))
     }
 }
+
+// ─────────────────────────────────────────────
+// ADMIN ALERTS & NOTIFICATIONS TAB
+// ─────────────────────────────────────────────
+
+@Composable
+fun AdminAlertsTab(sampleOrder: OrderEntity?) {
+    val context = LocalContext.current
+    var adminPhone by remember { mutableStateOf(OrderNotificationManager.getAdminPhone(context)) }
+    var isSaved by remember { mutableStateOf(false) }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(14.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = SurfaceWhite),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+            shape = RoundedCornerShape(10.dp)
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .size(38.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(Color(0xFF25D366)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(Icons.Default.NotificationsActive, contentDescription = null, tint = Color.White, modifier = Modifier.size(22.dp))
+                    }
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Column {
+                        Text("WhatsApp & SMS Order Alerts", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+                        Text("Store Owner Live Alert Setup", fontSize = 11.5.sp, color = TextSecondary)
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+                HorizontalDivider(color = DividerGray, thickness = 0.8.dp)
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Text(
+                    text = "দোকানের যে মোবাইল নম্বরে নতুন অর্ডার আসার সাথে সাথে WhatsApp ও SMS নোটিফিকেশন পেতে চান, সেই নম্বরটি এখানে সেভ করুন:",
+                    fontSize = 12.5.sp,
+                    color = TextPrimary,
+                    lineHeight = 18.sp
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                OutlinedTextField(
+                    value = adminPhone,
+                    onValueChange = {
+                        adminPhone = it
+                        isSaved = false
+                    },
+                    label = { Text("Store Owner WhatsApp & SMS Mobile Number") },
+                    placeholder = { Text("+91 98765 43210") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth().testTag("admin_alert_phone_input")
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Button(
+                    onClick = {
+                        OrderNotificationManager.setAdminPhone(context, adminPhone)
+                        isSaved = true
+                        Toast.makeText(context, "Notification Number Saved: $adminPhone", Toast.LENGTH_SHORT).show()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = FlipkartBlue),
+                    shape = RoundedCornerShape(6.dp),
+                    modifier = Modifier.fillMaxWidth().height(44.dp).testTag("save_admin_phone_btn")
+                ) {
+                    Icon(Icons.Default.CheckCircle, null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(if (isSaved) "SAVED SUCCESSFULLY!" else "SAVE NOTIFICATION NUMBER", fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+
+        // How Notifications Work Card
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = SurfaceWhite),
+            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+            shape = RoundedCornerShape(10.dp)
+        ) {
+            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("How Alerts Work in BM STORE:", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+
+                Row(verticalAlignment = Alignment.Top) {
+                    Text("1. ", fontWeight = FontWeight.Bold, color = FlipkartBlue)
+                    Text("Android System Push: কাস্টমার অ্যাপে অর্ডার প্লেস করার সাথে সাথে ফোনে রিং ও ভাইব্রেশন সহ নোটিফিকেশন আসবে।", fontSize = 12.5.sp, color = TextSecondary)
+                }
+
+                Row(verticalAlignment = Alignment.Top) {
+                    Text("2. ", fontWeight = FontWeight.Bold, color = Color(0xFF25D366))
+                    Text("WhatsApp Order Alert: সম্পূর্ণ ইনভয়েস, কাস্টমারের নাম, ফোন, ডেলিভারির ঠিকানা ও পণ্যের লিস্ট সরাসরি WhatsApp মেসেজে প্রস্তুত হয়।", fontSize = 12.5.sp, color = TextSecondary)
+                }
+
+                Row(verticalAlignment = Alignment.Top) {
+                    Text("3. ", fontWeight = FontWeight.Bold, color = FlipkartOrange)
+                    Text("Mobile SMS Dispatch: মোবাইল নেটওয়ার্কের সাধারণ SMS এ এক ক্লিকে অর্ডার অ্যালার্ট পাঠানো যায়।", fontSize = 12.5.sp, color = TextSecondary)
+                }
+            }
+        }
+
+        // Live Test Card
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = SurfaceWhite),
+            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+            shape = RoundedCornerShape(10.dp)
+        ) {
+            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("Test Notification Channels", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+
+                val testOrder = sampleOrder ?: OrderEntity(
+                    orderId = "TEST-BM-101",
+                    userId = "user_demo",
+                    customerName = "Rahim Ahmed",
+                    customerPhone = "+91 98765 43210",
+                    deliveryAddress = "Flat 4B, Park Street, Kolkata - 700001",
+                    itemsSummary = "1x Samsung Galaxy M34 5G (8GB/128GB)",
+                    totalAmount = 17999.0,
+                    itemCount = 1,
+                    paymentMethod = "Cash on Delivery",
+                    status = "Confirmed",
+                    isOfflinePickup = false,
+                    timestamp = System.currentTimeMillis()
+                )
+
+                Button(
+                    onClick = {
+                        OrderNotificationManager.showSystemOrderNotification(context, testOrder)
+                        Toast.makeText(context, "System Notification Triggered!", Toast.LENGTH_SHORT).show()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = FlipkartBlue),
+                    shape = RoundedCornerShape(6.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(Icons.Default.NotificationsActive, null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Test Android System Notification", fontSize = 12.5.sp, fontWeight = FontWeight.Bold)
+                }
+
+                Button(
+                    onClick = {
+                        OrderNotificationManager.sendWhatsAppOrderAlert(context, testOrder, adminPhone)
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF25D366)),
+                    shape = RoundedCornerShape(6.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(Icons.Default.Send, null, tint = Color.White, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Test WhatsApp Message Alert", fontSize = 12.5.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                }
+
+                OutlinedButton(
+                    onClick = {
+                        OrderNotificationManager.sendSmsOrderAlert(context, testOrder, adminPhone)
+                    },
+                    shape = RoundedCornerShape(6.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(Icons.Default.Sms, null, tint = FlipkartBlue, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Test Mobile SMS Alert", fontSize = 12.5.sp, fontWeight = FontWeight.Bold, color = FlipkartBlue)
+                }
+            }
+        }
+    }
+}
+

@@ -25,6 +25,8 @@ import androidx.compose.material.icons.filled.HeadsetMic
 import androidx.compose.material.icons.filled.LocalShipping
 import androidx.compose.material.icons.filled.Payment
 import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.Send
+import androidx.compose.material.icons.filled.Sms
 import androidx.compose.material.icons.filled.Store
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -48,6 +50,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -64,6 +67,7 @@ import com.example.ui.theme.FlipkartOrange
 import com.example.ui.theme.SurfaceWhite
 import com.example.ui.theme.TextPrimary
 import com.example.ui.theme.TextSecondary
+import com.example.util.OrderNotificationManager
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -84,6 +88,7 @@ fun OrderDetailsScreen(
         return
     }
 
+    val context = LocalContext.current
     val dateFormatter = remember { SimpleDateFormat("dd MMM yyyy, hh:mm a", Locale.getDefault()) }
     val formattedDate = dateFormatter.format(Date(order.timestamp))
 
@@ -433,6 +438,37 @@ fun OrderDetailsScreen(
                             ) {
                                 Text("Request Return / Exchange")
                             }
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // WhatsApp Notification
+                        Button(
+                            onClick = {
+                                OrderNotificationManager.sendWhatsAppOrderAlert(context, order)
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF25D366)),
+                            shape = RoundedCornerShape(6.dp),
+                            modifier = Modifier.fillMaxWidth().testTag("order_details_whatsapp_btn")
+                        ) {
+                            Icon(Icons.Default.Send, null, tint = Color.White, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Send to WhatsApp", fontWeight = FontWeight.Bold, color = Color.White)
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // SMS Notification
+                        OutlinedButton(
+                            onClick = {
+                                OrderNotificationManager.sendSmsOrderAlert(context, order)
+                            },
+                            shape = RoundedCornerShape(6.dp),
+                            modifier = Modifier.fillMaxWidth().testTag("order_details_sms_btn")
+                        ) {
+                            Icon(Icons.Default.Sms, null, tint = FlipkartBlue, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Send via SMS", fontWeight = FontWeight.Bold, color = FlipkartBlue)
                         }
 
                         Spacer(modifier = Modifier.height(8.dp))

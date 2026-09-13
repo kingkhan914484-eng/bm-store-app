@@ -154,6 +154,58 @@ class ShopRepository(
         )
     }
 
+    suspend fun loginOrRegisterWithGoogle(googleEmail: String, displayName: String): Result<UserSession> {
+        val cleanEmail = googleEmail.trim().lowercase()
+        var user = database.userDao().getUserByEmailOrPhone(cleanEmail)
+        if (user == null) {
+            user = UserEntity(
+                id = "google_" + UUID.randomUUID().toString().take(8),
+                name = displayName.ifBlank { cleanEmail.substringBefore("@") },
+                email = cleanEmail,
+                phone = "",
+                passwordHash = "google_auth_secure",
+                role = "customer"
+            )
+            database.userDao().insertUser(user)
+        }
+        return Result.success(
+            UserSession(
+                id = user.id,
+                name = user.name,
+                email = user.email,
+                phone = user.phone,
+                role = user.role,
+                isLoggedIn = true
+            )
+        )
+    }
+
+    suspend fun loginOrRegisterWithPhone(phoneNumber: String, name: String = "BM Customer"): Result<UserSession> {
+        val cleanPhone = phoneNumber.trim()
+        var user = database.userDao().getUserByEmailOrPhone(cleanPhone)
+        if (user == null) {
+            user = UserEntity(
+                id = "phone_" + UUID.randomUUID().toString().take(8),
+                name = name,
+                email = "${cleanPhone.replace("+", "").takeLast(10)}@bmstore.customer",
+                phone = cleanPhone,
+                passwordHash = "phone_auth_secure",
+                role = "customer"
+            )
+            database.userDao().insertUser(user)
+        }
+        return Result.success(
+            UserSession(
+                id = user.id,
+                name = user.name,
+                email = user.email,
+                phone = user.phone,
+                role = user.role,
+                isLoggedIn = true
+            )
+        )
+    }
+
     suspend fun resetPassword(identifier: String, newPassword: String): Boolean {
         val user = database.userDao().getUserByEmailOrPhone(identifier.trim()) ?: return false
         val updatedUser = user.copy(passwordHash = newPassword)
